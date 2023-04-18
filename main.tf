@@ -2,6 +2,49 @@ resource "azurerm_resource_group" "res-0" {
   location = "eastus"
   name     = "CreatePrivateEndpointQS-rg"
 }
+
+resource "azurerm_virtual_network" "res-13" {
+  address_space       = ["10.0.0.0/16"]
+  location            = "eastus"
+  name                = "MyVNet"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  depends_on = [
+    azurerm_resource_group.res-0,
+  ]
+}
+resource "azurerm_subnet" "res-14" {
+  address_prefixes     = ["10.0.1.0/24"]
+  name                 = "AzureBastionSubnet"
+  resource_group_name  = "CreatePrivateEndpointQS-rg"
+  virtual_network_name = "MyVNet"
+  depends_on = [
+    azurerm_virtual_network.res-13,
+  ]
+}
+resource "azurerm_subnet" "res-15" {
+  address_prefixes     = ["10.0.0.0/24"]
+  name                 = "myBackendSubnet"
+  resource_group_name  = "CreatePrivateEndpointQS-rg"
+  virtual_network_name = "MyVNet"
+  depends_on = [
+    azurerm_virtual_network.res-13,
+  ]
+}
+
+resource "azurerm_network_interface" "res-6" {
+  location            = "eastus"
+  name                = "myNicVM"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  ip_configuration {
+    name                          = "ipconfig1"
+    private_ip_address_allocation = "Dynamic"
+    subnet_id                     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
+  }
+  depends_on = [
+    azurerm_subnet.res-15,
+  ]
+}
+
 resource "azurerm_windows_virtual_machine" "res-1" {
   admin_password        = "Gophette1#12"
   admin_username        = "logcorner"
@@ -10,9 +53,9 @@ resource "azurerm_windows_virtual_machine" "res-1" {
   network_interface_ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/networkInterfaces/myNicVM"]
   resource_group_name   = "CreatePrivateEndpointQS-rg"
   size                  = "Standard_DS1_v2"
-  boot_diagnostics {
-    storage_account_uri = "https://microcreatemyvm041719430.blob.core.windows.net/"
-  }
+  # boot_diagnostics {
+  #   storage_account_uri = "https://microcreatemyvm041719430.blob.core.windows.net/"
+  # }
   identity {
     type = "SystemAssigned"
   }
@@ -27,7 +70,7 @@ resource "azurerm_windows_virtual_machine" "res-1" {
     version   = "latest"
   }
   depends_on = [
-    azurerm_network_interface.res-6,
+    azurerm_network_interface.res-6
   ]
 }
 # resource "azurerm_virtual_machine_extension" "res-2" {
@@ -64,6 +107,17 @@ resource "azurerm_windows_virtual_machine" "res-1" {
 #     azurerm_windows_virtual_machine.res-1,
 #   ]
 # }
+
+resource "azurerm_public_ip" "res-12" {
+  allocation_method   = "Static"
+  location            = "eastus"
+  name                = "myBastionIP"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  sku                 = "Standard"
+  depends_on = [
+    azurerm_resource_group.res-0,
+  ]
+}
 resource "azurerm_bastion_host" "res-5" {
   location            = "eastus"
   name                = "myBastion"
@@ -78,158 +132,111 @@ resource "azurerm_bastion_host" "res-5" {
     azurerm_subnet.res-14,
   ]
 }
-resource "azurerm_network_interface" "res-6" {
-  location            = "eastus"
-  name                = "myNicVM"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  ip_configuration {
-    name                          = "ipconfig1"
-    private_ip_address_allocation = "Dynamic"
-    subnet_id                     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
-  }
-  depends_on = [
-    azurerm_subnet.res-15,
-  ]
-}
-resource "azurerm_network_interface" "res-7" {
-  location            = "eastus"
-  name                = "myPrivateEndpoint.nic.ba3a177f-ac3e-48bc-8c98-a8886691d995"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  ip_configuration {
-    name                          = "privateEndpointIpConfig.675812f6-6fcc-4625-b03c-a7dd75c810ce"
-    private_ip_address_allocation = "Dynamic"
-    subnet_id                     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
-  }
-  depends_on = [
-    azurerm_subnet.res-15,
-  ]
-}
-resource "azurerm_private_dns_zone" "res-8" {
-  name                = "privatelink.Azurewebsites.net"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_private_dns_zone_virtual_network_link" "res-9" {
-  name                  = "myLink"
-  private_dns_zone_name = "privatelink.Azurewebsites.net"
-  resource_group_name   = "CreatePrivateEndpointQS-rg"
-  virtual_network_id    = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet"
-  depends_on = [
-    azurerm_private_dns_zone.res-8,
-    azurerm_virtual_network.res-13,
-  ]
-}
-resource "azurerm_private_endpoint" "res-10" {
-  location            = "eastus"
-  name                = "myPrivateEndpoint"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  subnet_id           = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
-  private_dns_zone_group {
-    name                 = "myZoneGroup"
-    private_dns_zone_ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/createprivateendpointqs-rg/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"]
-  }
-  private_service_connection {
-    is_manual_connection           = false
-    name                           = "myConnection"
-    private_connection_resource_id = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/sites/logcornerpewebapp"
-    subresource_names              = ["sites"]
-  }
-  depends_on = [
-    azurerm_subnet.res-15,
-    azurerm_linux_web_app.res-23,
-  ]
-}
-resource "azurerm_public_ip" "res-12" {
-  allocation_method   = "Static"
-  location            = "eastus"
-  name                = "myBastionIP"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  sku                 = "Standard"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_virtual_network" "res-13" {
-  address_space       = ["10.0.0.0/16"]
-  location            = "eastus"
-  name                = "MyVNet"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_subnet" "res-14" {
-  address_prefixes     = ["10.0.1.0/24"]
-  name                 = "AzureBastionSubnet"
-  resource_group_name  = "CreatePrivateEndpointQS-rg"
-  virtual_network_name = "MyVNet"
-  depends_on = [
-    azurerm_virtual_network.res-13,
-  ]
-}
-resource "azurerm_subnet" "res-15" {
-  address_prefixes     = ["10.0.0.0/24"]
-  name                 = "myBackendSubnet"
-  resource_group_name  = "CreatePrivateEndpointQS-rg"
-  virtual_network_name = "MyVNet"
-  depends_on = [
-    azurerm_virtual_network.res-13,
-  ]
-}
-resource "azurerm_storage_account" "res-16" {
-  account_replication_type = "GRS"
-  account_tier             = "Standard"
-  location                 = "eastus"
-  min_tls_version          = "TLS1_0"
-  name                     = "microcreatemyvm041719430"
-  resource_group_name      = "CreatePrivateEndpointQS-rg"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_storage_container" "res-18" {
-  name                 = "bootdiagnostics-myvm-c03296c0-a6da-45ad-9109-9af3af269e9e"
-  storage_account_name = "microcreatemyvm041719430"
-}
-resource "azurerm_service_plan" "res-22" {
-  location            = "eastus"
-  name                = "ASP-CreatePrivateEndpointQSrg-bca1"
-  os_type             = "Linux"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  sku_name            = "P1v3"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_linux_web_app" "res-23" {
-  app_settings = {
-    APPINSIGHTS_INSTRUMENTATIONKEY             = "92c100d8-92d6-4278-b2bd-ad536cca2511"
-    APPLICATIONINSIGHTS_CONNECTION_STRING      = "InstrumentationKey=92c100d8-92d6-4278-b2bd-ad536cca2511;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/"
-    ApplicationInsightsAgent_EXTENSION_VERSION = "~3"
-    XDT_MicrosoftApplicationInsights_Mode      = "Recommended"
-  }
-  https_only          = true
-  location            = "eastus"
-  name                = "logcornerpewebapp"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  service_plan_id     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/serverfarms/ASP-CreatePrivateEndpointQSrg-bca1"
-  site_config {
-    ftps_state = "FtpsOnly"
-  }
-  depends_on = [
-    azurerm_service_plan.res-22,
-  ]
-}
-resource "azurerm_app_service_custom_hostname_binding" "res-27" {
-  app_service_name    = "logcornerpewebapp"
-  hostname            = "logcornerpewebapp.azurewebsites.net"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  depends_on = [
-    azurerm_linux_web_app.res-23,
-  ]
-}
+
+# resource "azurerm_network_interface" "res-7" {
+#   location            = "eastus"
+#   name                = "myPrivateEndpoint.nic.ba3a177f-ac3e-48bc-8c98-a8886691d995"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   ip_configuration {
+#     name                          = "privateEndpointIpConfig.675812f6-6fcc-4625-b03c-a7dd75c810ce"
+#     private_ip_address_allocation = "Dynamic"
+#     subnet_id                     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
+#   }
+#   depends_on = [
+#     azurerm_subnet.res-15,
+#   ]
+# }
+# resource "azurerm_private_dns_zone" "res-8" {
+#   name                = "privatelink.Azurewebsites.net"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   depends_on = [
+#     azurerm_resource_group.res-0,
+#   ]
+# }
+# resource "azurerm_private_dns_zone_virtual_network_link" "res-9" {
+#   name                  = "myLink"
+#   private_dns_zone_name = "privatelink.Azurewebsites.net"
+#   resource_group_name   = "CreatePrivateEndpointQS-rg"
+#   virtual_network_id    = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet"
+#   depends_on = [
+#     azurerm_private_dns_zone.res-8,
+#     azurerm_virtual_network.res-13,
+#   ]
+# }
+# resource "azurerm_private_endpoint" "res-10" {
+#   location            = "eastus"
+#   name                = "myPrivateEndpoint"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   subnet_id           = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
+#   private_dns_zone_group {
+#     name                 = "myZoneGroup"
+#     private_dns_zone_ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/createprivateendpointqs-rg/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"]
+#   }
+#   private_service_connection {
+#     is_manual_connection           = false
+#     name                           = "myConnection"
+#     private_connection_resource_id = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/sites/logcornerpewebapp"
+#     subresource_names              = ["sites"]
+#   }
+#   depends_on = [
+#     azurerm_subnet.res-15,
+#     azurerm_linux_web_app.res-23,
+#   ]
+# }
+
+
+# resource "azurerm_storage_account" "res-16" {
+#   account_replication_type = "GRS"
+#   account_tier             = "Standard"
+#   location                 = "eastus"
+#   min_tls_version          = "TLS1_0"
+#   name                     = "microcreatemyvm041719430"
+#   resource_group_name      = "CreatePrivateEndpointQS-rg"
+#   depends_on = [
+#     azurerm_resource_group.res-0,
+#   ]
+# }
+# resource "azurerm_storage_container" "res-18" {
+#   name                 = "bootdiagnostics-myvm-c03296c0-a6da-45ad-9109-9af3af269e9e"
+#   storage_account_name = "microcreatemyvm041719430"
+# }
+# resource "azurerm_service_plan" "res-22" {
+#   location            = "eastus"
+#   name                = "ASP-CreatePrivateEndpointQSrg-bca1"
+#   os_type             = "Linux"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   sku_name            = "P1v3"
+#   depends_on = [
+#     azurerm_resource_group.res-0,azurerm_storage_account.res-16
+#   ]
+# }
+# resource "azurerm_linux_web_app" "res-23" {
+#   app_settings = {
+#     APPINSIGHTS_INSTRUMENTATIONKEY             = "92c100d8-92d6-4278-b2bd-ad536cca2511"
+#     APPLICATIONINSIGHTS_CONNECTION_STRING      = "InstrumentationKey=92c100d8-92d6-4278-b2bd-ad536cca2511;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/"
+#     ApplicationInsightsAgent_EXTENSION_VERSION = "~3"
+#     XDT_MicrosoftApplicationInsights_Mode      = "Recommended"
+#   }
+#   https_only          = true
+#   location            = "eastus"
+#   name                = "logcornerpewebapp"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   service_plan_id     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/serverfarms/ASP-CreatePrivateEndpointQSrg-bca1"
+#   site_config {
+#     ftps_state = "FtpsOnly"
+#   }
+#   depends_on = [
+#     azurerm_service_plan.res-22,
+#   ]
+# }
+# resource "azurerm_app_service_custom_hostname_binding" "res-27" {
+#   app_service_name    = azurerm_linux_web_app.res-23.name
+#   hostname            = "logcornerpewebapp.azurewebsites.net"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   depends_on = [
+#     azurerm_linux_web_app.res-23,
+#   ]
+# }
 # resource "azurerm_monitor_smart_detector_alert_rule" "res-48" {
 #   description         = "Failure Anomalies notifies you of an unusual rise in the rate of failed HTTP requests or dependency calls."
 #   detector_type       = "FailureAnomaliesDetector"
@@ -239,7 +246,7 @@ resource "azurerm_app_service_custom_hostname_binding" "res-27" {
 #   scope_resource_ids  = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourcegroups/createprivateendpointqs-rg/providers/microsoft.insights/components/logcornerpewebapp"]
 #   severity            = "Sev3"
 #   action_group {
-#     ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourcegroups/createprivateendpointqs-rg/providers/microsoft.insights/actiongroups/application insights smart detection"]
+#     ids = [azurerm_monitor_action_group.res-49.id]
 #   }
 #   depends_on = [
 #     azurerm_resource_group.res-0,
@@ -263,40 +270,40 @@ resource "azurerm_app_service_custom_hostname_binding" "res-27" {
 #     azurerm_resource_group.res-0,
 #   ]
 # }
-resource "azurerm_application_insights" "res-50" {
-  application_type    = "web"
-  location            = "eastus"
-  name                = "logcornerpewebapp"
-  resource_group_name = "CreatePrivateEndpointQS-rg"
-  sampling_percentage = 0
-  workspace_id        = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/DefaultResourceGroup-WEU/providers/Microsoft.OperationalInsights/workspaces/DefaultWorkspace-023b2039-5c23-44b8-844e-c002f8ed431d-WEU"
-  depends_on = [
-    azurerm_resource_group.res-0,
-  ]
-}
-resource "azurerm_private_dns_a_record" "res-51" {
-  name                = "logcornerpewebapp"
-  records             = ["10.0.0.5"]
-  resource_group_name = "createprivateendpointqs-rg"
-  tags = {
-    creator = "created by private endpoint myPrivateEndpoint with resource guid 9d618b81-8494-41d7-a47c-3cea4eaca3af"
-  }
-  ttl       = 10
-  zone_name = "privatelink.azurewebsites.net"
-  depends_on = [
-    azurerm_private_dns_zone.res-8,
-  ]
-}
-resource "azurerm_private_dns_a_record" "res-52" {
-  name                = "logcornerpewebapp.scm"
-  records             = ["10.0.0.5"]
-  resource_group_name = "createprivateendpointqs-rg"
-  tags = {
-    creator = "created by private endpoint myPrivateEndpoint with resource guid 9d618b81-8494-41d7-a47c-3cea4eaca3af"
-  }
-  ttl       = 10
-  zone_name = "privatelink.azurewebsites.net"
-  depends_on = [
-    azurerm_private_dns_zone.res-8,
-  ]
-}
+# resource "azurerm_application_insights" "res-50" {
+#   application_type    = "web"
+#   location            = "eastus"
+#   name                = "logcornerpewebapp"
+#   resource_group_name = "CreatePrivateEndpointQS-rg"
+#   sampling_percentage = 0
+#   workspace_id        = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/DefaultResourceGroup-WEU/providers/Microsoft.OperationalInsights/workspaces/DefaultWorkspace-023b2039-5c23-44b8-844e-c002f8ed431d-WEU"
+#   depends_on = [
+#     azurerm_resource_group.res-0,
+#   ]
+# }
+# resource "azurerm_private_dns_a_record" "res-51" {
+#   name                = "logcornerpewebapp"
+#   records             = ["10.0.0.5"]
+#   resource_group_name = "createprivateendpointqs-rg"
+#   tags = {
+#     creator = "created by private endpoint myPrivateEndpoint with resource guid 9d618b81-8494-41d7-a47c-3cea4eaca3af"
+#   }
+#   ttl       = 10
+#   zone_name = "privatelink.azurewebsites.net"
+#   depends_on = [
+#     azurerm_private_dns_zone.res-8,
+#   ]
+# }
+# resource "azurerm_private_dns_a_record" "res-52" {
+#   name                = "logcornerpewebapp.scm"
+#   records             = ["10.0.0.5"]
+#   resource_group_name = "createprivateendpointqs-rg"
+#   tags = {
+#     creator = "created by private endpoint myPrivateEndpoint with resource guid 9d618b81-8494-41d7-a47c-3cea4eaca3af"
+#   }
+#   ttl       = 10
+#   zone_name = "privatelink.azurewebsites.net"
+#   depends_on = [
+#     azurerm_private_dns_zone.res-8,
+#   ]
+# }
