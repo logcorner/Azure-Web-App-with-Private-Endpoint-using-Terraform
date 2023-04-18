@@ -210,16 +210,16 @@ resource "azurerm_private_endpoint" "res-10" {
 #   ]
 # }
 
-# resource "azurerm_private_dns_zone_virtual_network_link" "res-9" {
-#   name                  = "myLink"
-#   private_dns_zone_name = "privatelink.Azurewebsites.net"
-#   resource_group_name   = "CreatePrivateEndpointQS-rg"
-#   virtual_network_id    = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet"
-#   depends_on = [
-#     azurerm_private_dns_zone.res-8,
-#     azurerm_virtual_network.res-13,
-#   ]
-# }
+resource "azurerm_private_dns_zone_virtual_network_link" "res-9" {
+  name                  = "myLink"
+  private_dns_zone_name = azurerm_private_dns_zone.res-8.name
+  resource_group_name   = "CreatePrivateEndpointQS-rg"
+  virtual_network_id    = azurerm_virtual_network.res-13.id
+  depends_on = [
+    azurerm_private_dns_zone.res-8,
+    azurerm_virtual_network.res-13,
+  ]
+}
 
 
 
