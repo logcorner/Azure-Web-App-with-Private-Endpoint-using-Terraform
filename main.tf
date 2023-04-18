@@ -165,6 +165,37 @@ resource "azurerm_linux_web_app" "res-23" {
   ]
 }
 
+################# Create a Private Endpoint
+
+resource "azurerm_private_dns_zone" "res-8" {
+  name                = "privatelink.Azurewebsites.net"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  depends_on = [
+    azurerm_resource_group.res-0,
+  ]
+}
+
+resource "azurerm_private_endpoint" "res-10" {
+  location            = "eastus"
+  name                = "myPrivateEndpoint"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  subnet_id           = azurerm_subnet.res-15.id
+  private_dns_zone_group {
+    name                 = "myZoneGroup"
+    private_dns_zone_ids = [azurerm_private_dns_zone.res-8.id]
+  }
+  private_service_connection {
+    is_manual_connection           = false
+    name                           = "myConnection"
+    private_connection_resource_id = azurerm_linux_web_app.res-23.id
+    subresource_names              = ["sites"]
+  }
+  depends_on = [
+    azurerm_subnet.res-15,
+    azurerm_linux_web_app.res-23,
+  ]
+}
+
 # resource "azurerm_network_interface" "res-7" {
 #   location            = "eastus"
 #   name                = "myPrivateEndpoint.nic.ba3a177f-ac3e-48bc-8c98-a8886691d995"
@@ -178,13 +209,7 @@ resource "azurerm_linux_web_app" "res-23" {
 #     azurerm_subnet.res-15,
 #   ]
 # }
-# resource "azurerm_private_dns_zone" "res-8" {
-#   name                = "privatelink.Azurewebsites.net"
-#   resource_group_name = "CreatePrivateEndpointQS-rg"
-#   depends_on = [
-#     azurerm_resource_group.res-0,
-#   ]
-# }
+
 # resource "azurerm_private_dns_zone_virtual_network_link" "res-9" {
 #   name                  = "myLink"
 #   private_dns_zone_name = "privatelink.Azurewebsites.net"
@@ -195,26 +220,7 @@ resource "azurerm_linux_web_app" "res-23" {
 #     azurerm_virtual_network.res-13,
 #   ]
 # }
-# resource "azurerm_private_endpoint" "res-10" {
-#   location            = "eastus"
-#   name                = "myPrivateEndpoint"
-#   resource_group_name = "CreatePrivateEndpointQS-rg"
-#   subnet_id           = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
-#   private_dns_zone_group {
-#     name                 = "myZoneGroup"
-#     private_dns_zone_ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/createprivateendpointqs-rg/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"]
-#   }
-#   private_service_connection {
-#     is_manual_connection           = false
-#     name                           = "myConnection"
-#     private_connection_resource_id = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/sites/logcornerpewebapp"
-#     subresource_names              = ["sites"]
-#   }
-#   depends_on = [
-#     azurerm_subnet.res-15,
-#     azurerm_linux_web_app.res-23,
-#   ]
-# }
+
 
 
 # resource "azurerm_storage_account" "res-16" {
