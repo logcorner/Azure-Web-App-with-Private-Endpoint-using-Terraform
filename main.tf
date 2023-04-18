@@ -38,7 +38,7 @@ resource "azurerm_network_interface" "res-6" {
   ip_configuration {
     name                          = "ipconfig1"
     private_ip_address_allocation = "Dynamic"
-    subnet_id                     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/virtualNetworks/MyVNet/subnets/myBackendSubnet"
+    subnet_id                     = azurerm_subnet.res-15.id
   }
   depends_on = [
     azurerm_subnet.res-15,
@@ -50,7 +50,7 @@ resource "azurerm_windows_virtual_machine" "res-1" {
   admin_username        = "logcorner"
   location              = "eastus"
   name                  = "myVM"
-  network_interface_ids = ["/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Network/networkInterfaces/myNicVM"]
+  network_interface_ids = [azurerm_network_interface.res-6.id]
   resource_group_name   = "CreatePrivateEndpointQS-rg"
   size                  = "Standard_DS1_v2"
   # boot_diagnostics {
@@ -133,6 +133,38 @@ resource "azurerm_bastion_host" "res-5" {
   ]
 }
 
+#####  WEB APP
+
+resource "azurerm_service_plan" "res-22" {
+  location            = "eastus"
+  name                = "ASP-CreatePrivateEndpointQSrg-bca1"
+  os_type             = "Linux"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  sku_name            = "P1v3"
+  depends_on = [
+    azurerm_resource_group.res-0
+  ]
+}
+resource "azurerm_linux_web_app" "res-23" {
+  # app_settings = {
+  #   APPINSIGHTS_INSTRUMENTATIONKEY             = "92c100d8-92d6-4278-b2bd-ad536cca2511"
+  #   APPLICATIONINSIGHTS_CONNECTION_STRING      = "InstrumentationKey=92c100d8-92d6-4278-b2bd-ad536cca2511;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/"
+  #   ApplicationInsightsAgent_EXTENSION_VERSION = "~3"
+  #   XDT_MicrosoftApplicationInsights_Mode      = "Recommended"
+  # }
+  https_only          = true
+  location            = "eastus"
+  name                = "logcornerpewebapp"
+  resource_group_name = "CreatePrivateEndpointQS-rg"
+  service_plan_id     = azurerm_service_plan.res-22.id
+  site_config {
+    ftps_state = "FtpsOnly"
+  }
+  depends_on = [
+    azurerm_service_plan.res-22,
+  ]
+}
+
 # resource "azurerm_network_interface" "res-7" {
 #   location            = "eastus"
 #   name                = "myPrivateEndpoint.nic.ba3a177f-ac3e-48bc-8c98-a8886691d995"
@@ -200,35 +232,7 @@ resource "azurerm_bastion_host" "res-5" {
 #   name                 = "bootdiagnostics-myvm-c03296c0-a6da-45ad-9109-9af3af269e9e"
 #   storage_account_name = "microcreatemyvm041719430"
 # }
-# resource "azurerm_service_plan" "res-22" {
-#   location            = "eastus"
-#   name                = "ASP-CreatePrivateEndpointQSrg-bca1"
-#   os_type             = "Linux"
-#   resource_group_name = "CreatePrivateEndpointQS-rg"
-#   sku_name            = "P1v3"
-#   depends_on = [
-#     azurerm_resource_group.res-0,azurerm_storage_account.res-16
-#   ]
-# }
-# resource "azurerm_linux_web_app" "res-23" {
-#   app_settings = {
-#     APPINSIGHTS_INSTRUMENTATIONKEY             = "92c100d8-92d6-4278-b2bd-ad536cca2511"
-#     APPLICATIONINSIGHTS_CONNECTION_STRING      = "InstrumentationKey=92c100d8-92d6-4278-b2bd-ad536cca2511;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/"
-#     ApplicationInsightsAgent_EXTENSION_VERSION = "~3"
-#     XDT_MicrosoftApplicationInsights_Mode      = "Recommended"
-#   }
-#   https_only          = true
-#   location            = "eastus"
-#   name                = "logcornerpewebapp"
-#   resource_group_name = "CreatePrivateEndpointQS-rg"
-#   service_plan_id     = "/subscriptions/023b2039-5c23-44b8-844e-c002f8ed431d/resourceGroups/CreatePrivateEndpointQS-rg/providers/Microsoft.Web/serverfarms/ASP-CreatePrivateEndpointQSrg-bca1"
-#   site_config {
-#     ftps_state = "FtpsOnly"
-#   }
-#   depends_on = [
-#     azurerm_service_plan.res-22,
-#   ]
-# }
+
 # resource "azurerm_app_service_custom_hostname_binding" "res-27" {
 #   app_service_name    = azurerm_linux_web_app.res-23.name
 #   hostname            = "logcornerpewebapp.azurewebsites.net"
